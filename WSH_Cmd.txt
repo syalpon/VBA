@@ -1,0 +1,54 @@
+'●WSHクラス:コマンドプロンプトの操作を円滑に行う為のクラスです
+
+'■フィールド
+Private cmdlist As String
+
+'◆cmdキューに追加
+Public Sub Add_cmd(ByVal cmd As String)
+    cmdlist = cmdlist & " & " & cmd
+End Sub
+
+'◆cmdキューの全クリア
+Public Sub crear_cmd()
+    cmdlist = "%ComSpec% /c cd " & ActiveWorkbook.Path
+End Sub
+
+'◆コマンド実行
+Public Function run_cmd() As String()
+    Dim Wsh As New IWshRuntimeLibrary.WshShell
+    Dim result As WshExec
+    Dim str As String
+    
+    '実行：結果を保存
+    Set result = Wsh.exec(cmdlist)
+    str = result.StdOut.ReadAll
+    
+    'CRLFの種類を分類
+    If InStr(str, vbCrLf) > 0 Then
+        run_cmd = Split(str, vbCrLf)
+    Else
+        If InStr(str, vbLf) > 0 Then
+            run_cmd = Split(str, vbLf)
+        Else
+            If InStr(str, vbCr) > 0 Then
+                run_cmd = Split(str, vbCr)
+            Else
+                run_cmd = Split(str, vbCrLf)
+            End If
+        End If
+    End If
+ 
+    Set result = Nothing
+    Set Wsh = Nothing
+End Function
+
+'コンストラクタ
+Private Sub Class_Initialize()
+    '初期化
+    cmdlist = "%ComSpec% /c cd " & ActiveWorkbook.Path
+End Sub
+'デストラクタ
+Private Sub Class_Terminate()
+    
+End Sub
+

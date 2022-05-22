@@ -1,0 +1,132 @@
+Sub run_git()
+    '[clone]-----------------------------------------------------------
+    'クラス定義
+    Dim Wsh As New WSH_Cmd
+    
+    'クローンする空ディレクトリ
+    Call Wsh.Add_cmd("mkdir repository")
+    
+    '作成した空ディレクトリに移動
+    Call Wsh.Add_cmd("cd repository")
+    
+    'クローン
+    Call Wsh.Add_cmd("git clone " & Range("D2").Value)
+
+    'コマンド実行(戻り値不要)
+    Call Wsh.run_cmd
+    
+    '実行したコマンドをクリア
+    Call Wsh.crear_cmd
+    
+    '[remote]----------------------------------------------------------
+    Dim rr_name() As String
+    
+    'クローン先に移動
+    'Call Wsh.Add_cmd("cd repository & cd GITS")
+    
+    'リモートリポジトリの名前を取得
+    Call Wsh.Add_cmd("git remote")
+    
+    'コマンド実行(戻り値はリモートリポジトリ名)
+    Range("C2").Value = Wsh.run_cmd()
+    
+    Call Wsh.crear_cmd
+    
+    '[branch]----------------------------------------------------------
+    Dim branch_name() As String
+    
+    'クローン先に移動
+    'Call Wsh.Add_cmd("cd repository & cd GITS")
+    
+    Call Wsh.Add_cmd("git branch -r")
+
+    'コマンド実行(戻り値はブランチ名)
+    branch_name() = Wsh.run_cmd()
+    
+    Dim i As Integer
+    i = 0
+    For Each bn In branch_name
+        Cells(5 + i, 2).Value = bn
+        i = i + 1
+    Next
+       
+    Call Wsh.crear_cmd
+
+    'リポジトリ名付近の文字を空白置換(削除)しブランチ名のみ抽出
+    Range("B5:B10000").Replace what:="  " & Range("C2") & "/", replacement:=""
+
+
+    
+    '[log]-----------------------------------------------------------
+    Dim branch_info() As String
+    Dim ary As Variant
+    
+    'クローン先に移動
+    'Call Wsh.Add_cmd("cd repository & cd GITS")
+
+    'コミットログ取得
+    Call Wsh.Add_cmd("git branch -r -vv")
+    
+    'コマンド実行(戻り値はブランチ名＋コミットID＋コミットコメント)
+    branch_info() = Wsh.run_cmd()
+    
+    
+    i = 0
+    For Each bi In branch_info
+        '例外処理：空白のみの文字列がでたら終了
+        If Len(bi) = 0 Then
+            Exit For
+        End If
+        
+        'コミットID抽出
+        '先頭の空白削除
+        bi = Trim(bi)
+        
+        '途中の空白を圧縮
+        Do While InStr(bi, "  ") > 0
+            bi = Replace(bi, "  ", " ")
+        Loop
+        
+        '空白区切りで配列へ
+        ary = Split(bi, " ")
+        Cells(5 + i, 4).Value = ary(1)
+        Cells(5 + i, 5).Value = ary(2)
+        i = i + 1
+    Next
+    
+    Call Wsh.crear_cmd
+    
+    '[merge]-----------------------------------------------------------
+    Dim merge_branch_name() As String
+    
+    'クローン先に移動
+    'Call Wsh.Add_cmd("cd repository & cd GITS")
+    
+    'マージ済ブランチ取得
+    Call Wsh.Add_cmd("git branch -r --list --merge " & Range("D5").Value)
+    
+    'コマンド実行(戻り値はブランチ名)
+    merge_branch_name() = Wsh.run_cmd()
+    
+    'マージ済み記載列のクリア
+    Range("B10000").Select
+    Selection.End(xlUp).Select
+    Range("C5:C" & Selection.Row).Value = ""
+    
+    For Each mbn In merge_branch_name
+        '例外処理：空白のみの文字列がでたら終了
+        If Len(mbn) = 0 Then
+            Exit For
+        End If
+        
+        'ブランチ名のみ抽出
+        mbn = WorksheetFunction.Substitute(mbn, "  " & Range("C2") & "/", "")
+        
+        '検索：ヒットしたところに●
+        Cells(Range("B5:B10000").Find(mbn).Row, 3) = "●"
+    Next
+    
+    Call Wsh.crear_cmd
+
+End Sub
+
