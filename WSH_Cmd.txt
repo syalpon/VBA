@@ -2,53 +2,231 @@
 
 '■フィールド
 Private cmdlist As String
+Private RepositoryName As String
+Private RepositoryURL As String
+Private DirectoryName As String
+Private WorkPath As String
+
+'◆リポジトリ登録
+Public Sub ResistRepositoryName(ByVal origin As String, ByVal url As String)
+    RepositoryName = origin
+    RepositoryURL = url
+End Sub
+
+'◆ディレクトリ名登録
+Public Sub ResistDirectoryName(ByVal name As String)
+    DirectoryName = name
+End Sub
 
 '◆cmdキューに追加
 Public Sub Add_cmd(ByVal cmd As String)
     cmdlist = cmdlist & " & " & cmd
 End Sub
 
-'◆cmdキューの全クリア
-Public Sub crear_cmd()
-    cmdlist = "%ComSpec% /c cd " & ActiveWorkbook.Path
-End Sub
 
 '◆コマンド実行
-Public Function run_cmd() As String()
+Public Function run_cmd(Optional ByVal options As String = "") As String()
     Dim Wsh As New IWshRuntimeLibrary.WshShell
     Dim result As WshExec
     Dim str As String
+    Dim ret() As String
+    
+    'パスの設定
+    cmdlist = "%ComSpec% /c cd " & WorkPath & cmdlist
     
     '実行：結果を保存
-    Set result = Wsh.exec(cmdlist)
+    Debug.Print cmdlist '<<<<<<<<<<<<<<<<<<debug>>>>>>>>>>>>>>>>>>>
+    
+    Set result = Wsh.exec(cmdlist & options)
     str = result.StdOut.ReadAll
     
-    'CRLFの種類を分類
-    If InStr(str, vbCrLf) > 0 Then
-        run_cmd = Split(str, vbCrLf)
-    Else
-        If InStr(str, vbLf) > 0 Then
-            run_cmd = Split(str, vbLf)
-        Else
-            If InStr(str, vbCr) > 0 Then
-                run_cmd = Split(str, vbCr)
-            Else
-                run_cmd = Split(str, vbCrLf)
-            End If
-        End If
-    End If
- 
+    '初期化
+    cmdlist = ""
+    
+    ret = Molding(str)
+    
+    For Each r In ret
+        Debug.Print r '<<<<<<<<<<<<<<<<<<debug>>>>>>>>>>>>>>>>>>>
+    Next
+    
+    run_cmd = ret
+    
     Set result = Nothing
     Set Wsh = Nothing
+    
 End Function
+
+'◆ベアのクローン
+Public Sub BareClone()
+    Clone ("--bare")
+End Sub
+
+'◆クローン
+Public Sub Clone(Optional ByVal options As String = "")
+    If RepositoryURL = "" Then
+        MsgBox "URLが設定されていません。"
+    Else
+        'クローン
+        Me.Add_cmd ("git clone " & options & " " & RepositoryURL & " " & DirectoryName)
+        Me.run_cmd
+
+        'パスの再登録
+        WorkPath = WorkPath & "\" & DirectoryName
+        
+    End If
+End Sub
+
+'◆ブランチ名取得
+Public Function GetBranchName() As String()
+    Me.Add_cmd ("git branch")
+    GetBranchName = Me.run_cmd
+
+End Function
+
+'◆CommitID取得
+Public Function GetCommitID(Optional ByVal branch As String = "") As String()
+    Me.Add_cmd ("git log " & branch)
+    GetCommitID = Me.run_cmd
+
+End Function
+
+'◆CommitLog取得
+Public Function GetCommitLog(Optional ByVal branch As String = "") As String()
+    Me.Add_cmd ("git log " & branch)
+    GetCommitLog = Me.run_cmd
+
+End Function
+
+'◆ブランチ情報取得
+Public Function GetBranchInfo() As String()
+    Dim filename As String
+    filename = ".temp.txt"
+    
+    'WSHではutf8は取得できないので一旦リダイレクトで標準出力にして保存
+    Me.Add_cmd ("git branch -vv")
+    Me.run_cmd (" > " & ActiveWorkbook.Path & "\" & filename)
+    
+    Dim buf As String
+   
+    'utf8で読み込み
+    With CreateObject("ADODB.Stream")
+        .Charset = "UTF-8"
+        .Open
+        .LoadFromFile ActiveWorkbook.Path & "\" & filename
+        buf = .ReadText
+        .Close
+    End With
+    
+    Debug.Print buf
+    
+    'ファイルの削除
+    Me.Add_cmd ("rm " & ActiveWorkbook.Path & "\" & filename)
+    Me.run_cmd
+
+    GetBranchInfo = Molding(buf)
+   
+End Function
+
+'◆マージ済情報取得
+Public Function GetMergedInfo(Optional ByVal branch As String = "") As String()
+    Me.Add_cmd ("git branch --merged " & branch)
+    GetMergedInfo = Me.run_cmd
+End Function
+
+'◆マージ情報
+Public Sub MergeInfo()
+    Dim filename As String
+    filename = ".temp.txt"
+    Me.Add_cmd ("git show-branch --sha1-name")
+    Me.run_cmd (" > " & ActiveWorkbook.Path & "\" & filename)
+
+    
+    Dim buf As String
+   
+    'utf8で読み込み
+    With CreateObject("ADODB.Stream")
+        .Charset = "UTF-8"
+        .Open
+        .LoadFromFile ActiveWorkbook.Path & "\" & filename
+        buf = .ReadText
+        .Close
+    End With
+
+    'ファイルの削除
+    Me.Add_cmd ("rm " & ActiveWorkbook.Path & "\" & filename)
+    Me.run_cmd
+
+    
+    Dim index As Integer
+    Dim buffer() As String
+    Dim flag As Boolean
+    index = 0
+    flag = False
+    buffer = Split(buf, vbLf)
+    For Each b In buffer
+        
+        If flag = True Then
+            Cells(index + 1, 8).Value = b
+            index = index + 1
+        Else
+            If Mid(b, 1, 4) = "----" Then
+                flag = True
+            End If
+        End If
+    Next
+    
+End Sub
+
+'◆クローンしたディレクトリを削除
+Public Sub unclone()
+    WorkPath = ActiveWorkbook.Path
+    Me.Add_cmd ("rmdir /s /q " & DirectoryName)
+    Me.run_cmd
+End Sub
+
+
+
 
 'コンストラクタ
 Private Sub Class_Initialize()
     '初期化
-    cmdlist = "%ComSpec% /c cd " & ActiveWorkbook.Path
+    WorkPath = ActiveWorkbook.Path
+    cmdlist = ""
+    RepositoryName = "origin"
+    RepositoryURL = ""
+    DirectoryName = "GIT"
+    
+    Range("B5:F10000") = ""
+    
 End Sub
+
 'デストラクタ
 Private Sub Class_Terminate()
     
 End Sub
+
+Private Function Molding(str) As String()
+    Dim ret() As String
+    'CRLFの種類を分類
+    If str = "" Then
+        ret = VBA.Split(VBA.vbNullString)
+    Else
+        If InStr(str, vbCrLf) > 0 Then
+            ret = Split(str, vbCrLf)
+        Else
+            If InStr(str, vbLf) > 0 Then
+                ret = Split(str, vbLf)
+            Else
+                If InStr(str, vbCr) > 0 Then
+                    ret = Split(str, vbCr)
+                Else
+                    ret = Split(str, vbCrLf)
+                End If
+            End If
+        End If
+    End If
+    
+    Molding = ret
+End Function
+
 
