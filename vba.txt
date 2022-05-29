@@ -1,10 +1,10 @@
+
 Sub run_git()
     Dim Wsh As New WSH_Cmd 'クラス定義
     Dim BranchNameList() As String
     Dim BranchInfo() As String
     Dim MergeInfo() As String
     Dim index As Integer
-    Dim jndex As Integer
     
     '[clone]-----------------------------------------------------------
     Call Wsh.ResistRepositoryName(Range("C2").Value, Range("D2").Value)
@@ -18,8 +18,10 @@ Sub run_git()
             Exit For
         End If
         
+        '＊を取得
+        Cells(5 + index, 1) = Mid(bi, 1, 1)
+        
         '成形
-        bi = Replace(bi, "*", " ")
         bi = Mid(bi, 3)
         bi = Replace(bi, "[", "")
         bi = Replace(bi, "]", "")
@@ -51,6 +53,17 @@ Sub run_git()
         End If
     Next
     
+    '[origin-branch]-----------------------------------------------------------
+    Dim main_branch As String
+    main_brach = Cells(Range("A:A").Find("*").Row, 2)
+    
+    index = 0
+    Do While Cells(5 + index, 2).Value <> ""
+         Cells(5 + index, 6) = Mid(Wsh.GetLatestCommonCommitID(main_brach, Cells(5 + index, 2).Value), 1, 7)
+        index = index + 1
+    Loop
+    
+    'クローンしたリポジトリを破壊
     Wsh.unclone
     
 End Sub

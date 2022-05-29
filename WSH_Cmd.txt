@@ -133,49 +133,12 @@ Public Function GetMergedInfo(Optional ByVal branch As String = "") As String()
     GetMergedInfo = Me.run_cmd
 End Function
 
-'◆マージ情報
-Public Sub MergeInfo()
-    Dim filename As String
-    filename = ".temp.txt"
-    Me.Add_cmd ("git show-branch --sha1-name")
-    Me.run_cmd (" > " & ActiveWorkbook.Path & "\" & filename)
-
-    
-    Dim buf As String
-   
-    'utf8で読み込み
-    With CreateObject("ADODB.Stream")
-        .Charset = "UTF-8"
-        .Open
-        .LoadFromFile ActiveWorkbook.Path & "\" & filename
-        buf = .ReadText
-        .Close
-    End With
-
-    'ファイルの削除
-    Me.Add_cmd ("rm " & ActiveWorkbook.Path & "\" & filename)
-    Me.run_cmd
-
-    
-    Dim index As Integer
-    Dim buffer() As String
-    Dim flag As Boolean
-    index = 0
-    flag = False
-    buffer = Split(buf, vbLf)
-    For Each b In buffer
-        
-        If flag = True Then
-            Cells(index + 1, 8).Value = b
-            index = index + 1
-        Else
-            If Mid(b, 1, 4) = "----" Then
-                flag = True
-            End If
-        End If
-    Next
-    
-End Sub
+'◆派生元ブランチ情報
+Public Function GetLatestCommonCommitID(Optional ByVal branch1 As String = "", Optional ByVal branch2 As String = "") As String
+    Me.Add_cmd ("git merge-base " & branch1 & " " & branch2)
+    a = Me.run_cmd
+    GetLatestCommonCommitID = a(0)
+End Function
 
 '◆クローンしたディレクトリを削除
 Public Sub unclone()
@@ -196,7 +159,7 @@ Private Sub Class_Initialize()
     RepositoryURL = ""
     DirectoryName = "GIT"
     
-    Range("B5:F10000") = ""
+    Range("A5:F10000") = ""
     
 End Sub
 
